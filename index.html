@@ -7,33 +7,335 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        :root { --bg: #0f0f0f; --card: #1a1a1a; --accent: #ffffff; --grey: #888; --red: #ff4d4d; --green: #00e676; }
-        body { background: var(--bg); color: var(--accent); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; }
-        .header { text-align: center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
+        :root { 
+            --bg: #0f0f0f; 
+            --card: #1a1a1a; 
+            --card-hover: #222222;
+            --accent: #ffffff; 
+            --grey: #888; 
+            --dark-grey: #333;
+            --red: #ff4d4d; 
+            --green: #00e676; 
+            --border-radius: 8px;
+        }
+        body { background: var(--bg); color: var(--accent); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 15px; }
+        .header { text-align: center; border-bottom: 1px solid var(--dark-grey); padding-bottom: 15px; margin-bottom: 20px; }
         .header h1 { font-weight: 300; letter-spacing: 3px; margin: 0; font-size: 1.5rem; }
         
+        /* Вкладки */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .tab-btn { flex: 1; padding: 12px; background: var(--card); border: 1px solid #333; color: var(--grey); border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .tab-btn.active { border-color: var(--accent); color: #fff; }
+        .tab-btn { flex: 1; padding: 12px; background: var(--card); border: 1px solid var(--dark-grey); color: var(--grey); border-radius: var(--border-radius); cursor: pointer; transition: 0.2s; font-size: 1rem; }
+        .tab-btn.active { border-color: var(--accent); color: #fff; background: var(--card-hover); }
 
         .section { display: none; }
-        .section.active { display: block; }
+        .section.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         /* Статистика */
         .brew-card { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 4px solid var(--grey); }
         .brew-card.Completed { border-left-color: var(--green); }
         .brew-card.Abandoned { border-left-color: var(--red); }
-        .brew-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px; }
-        .brew-details { font-size: 0.85rem; color: var(--grey); display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .status { font-size: 0.7rem; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #333; color: #fff; }
+        .brew-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; font-size: 1.1rem; }
+        .brew-details { font-size: 0.9rem; color: var(--grey); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .status { font-size: 0.75rem; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--dark-grey); color: #fff; font-weight: normal; }
 
-        /* Редактор */
-        textarea { width: 100%; height: 400px; background: #000; color: #00e676; border: 1px solid #333; border-radius: 8px; padding: 10px; font-family: monospace; box-sizing: border-box; resize: vertical; }
-        .btn-save { width: 100%; padding: 15px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; transition: 0.2s; }
+        /* Редактор (GUI) */
+        .path-container { display: flex; gap: 10px; margin-bottom: 20px; }
+        select.recipe-selector { 
+            flex: 1; padding: 12px 15px; background-color: var(--card); color: #fff; 
+            border: 1px solid var(--dark-grey); border-radius: var(--border-radius); font-size: 1rem; cursor: pointer;
+            appearance: none; -webkit-appearance: none; -moz-appearance: none;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat; background-position: right 15px top 50%; background-size: 12px auto;
+        }
+        select.recipe-selector:focus { border-color: var(--accent); outline: none; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: var(--grey); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+        .form-control { width: 100%; padding: 12px; background: var(--card); border: 1px solid var(--dark-grey); color: #fff; border-radius: var(--border-radius); box-sizing: border-box; font-size: 1rem; }
+        .form-control:focus { border-color: var(--accent); outline: none; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        /* Вливания */
+        .steps-header { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; margin-bottom: 10px; border-bottom: 1px solid var(--dark-grey); padding-bottom: 10px; }
+        .steps-header h3 { margin: 0; font-size: 1.2rem; }
+        
+        .step-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; background: var(--card); padding: 10px; border-radius: var(--border-radius); margin-bottom: 10px; align-items: center; border: 1px solid var(--dark-grey); }
+        .step-row input, .step-row select { width: 100%; padding: 10px; background: var(--bg); border: 1px solid var(--dark-grey); color: #fff; border-radius: 4px; box-sizing: border-box; text-align: center; }
+        
+        /* Кнопки */
+        .btn { padding: 12px 15px; border: none; border-radius: var(--border-radius); cursor: pointer; transition: 0.2s; font-weight: bold; text-transform: uppercase; font-size: 0.9rem; }
+        .btn-add { background: #333; color: #fff; width: 100%; margin-bottom: 20px; }
+        .btn-add:hover { background: #444; }
+        .btn-danger { background: rgba(255, 77, 77, 0.1); color: var(--red); padding: 10px; }
+        .btn-danger:hover { background: var(--red); color: #fff; }
+        .btn-save { width: 100%; padding: 15px; background: var(--accent); color: #000; font-size: 1.1rem; margin-top: 10px; }
         .btn-save:hover { background: #e0e0e0; }
+
+        @media (max-width: 480px) {
+            .step-row { grid-template-columns: 1fr 1fr; }
+            .step-row select { grid-column: span 1; }
+            .step-row .btn-danger { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header"><h1>NOVA DASHBOARD</h1></div>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="showTab(event, 'stats')">Статистика</button>
+    <button class="tab-btn" onclick="showTab(event, 'editor')">Редактор</button>
+</div>
+
+<div id="stats" class="section active">
+    <div id="totalInfo" style="margin-bottom: 15px; color: var(--grey);">Загрузка данных...</div>
+    <div id="historyList"></div>
+</div>
+
+<div id="editor" class="section">
+    <div class="path-container">
+        <select id="dbPath" class="recipe-selector" onchange="loadRecipeToEditor()">
+            </select>
+    </div>
+
+    <div class="form-group">
+        <label>Название рецепта</label>
+        <input type="text" id="rec-name" class="form-control" placeholder="Например: Local Kenya">
+    </div>
+    
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Закладка (грамм)</label>
+            <input type="number" id="rec-weight" class="form-control" placeholder="15">
+        </div>
+        <div class="form-group">
+            <label>Помол</label>
+            <input type="text" id="rec-grind" class="form-control" placeholder="7.0">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Общий объем воды (мл)</label>
+        <input type="number" id="rec-volume" class="form-control" placeholder="250">
+    </div>
+
+    <div class="steps-header">
+        <h3>Вливания</h3>
+    </div>
+    
+    <div id="steps-container">
+        </div>
+    
+    <button class="btn btn-add" onclick="addStep()">+ Добавить вливание</button>
+
+    <button class="btn btn-save" onclick="saveToFirebase()">СОХРАНИТЬ В БАЗУ</button>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyA7qkkjU6_RLZ-Kk80UXNQTuavVAV-fmB8",
+        databaseURL: "https://v60-station-default-rtdb.europe-west1.firebasedatabase.app"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentSteps = []; // Массив для хранения шагов текущего рецепта
+
+    // 1. Генерация выпадающего списка
+    function populateDropdown() {
+        const select = document.getElementById('dbPath');
         
-        .path-container { display: flex; gap: 10px; margin-bottom: 10px; }
+        const optGroupV60 = document.createElement('optgroup');
+        optGroupV60.label = "Одинарный V60 (Слоты 0-9)";
+        for(let i = 0; i < 10; i++) {
+            optGroupV60.innerHTML += `<option value="recipes/v60_${i}">V60 Слот ${i}</option>`;
+        }
         
+        const optGroupDouble = document.createElement('optgroup');
+        optGroupDouble.label = "Двойной V60 (Слоты 0-9)";
+        for(let i = 0; i < 10; i++) {
+            optGroupDouble.innerHTML += `<option value="recipes/double_${i}">Двойной Слот ${i}</option>`;
+        }
+
+        select.appendChild(optGroupV60);
+        select.appendChild(optGroupDouble);
+    }
+    populateDropdown();
+
+    // 2. Переключение вкладок
+    function showTab(e, tabId) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        e.currentTarget.classList.add('active');
+        if(tabId === 'editor') loadRecipeToEditor();
+    }
+
+    // 3. ЛОГИКА СТАТИСТИКИ
+    db.ref('/history').limitToLast(50).on('value', (snap) => {
+        const list = document.getElementById('historyList');
+        list.innerHTML = '';
+        const data = snap.val();
+        if(!data) {
+            document.getElementById('totalInfo').innerText = `Нет данных для отображения.`;
+            return;
+        }
+
+        const items = Object.values(data).reverse();
+        document.getElementById('totalInfo').innerText = `Всего варок: ${items.length} (последние 50)`;
+
+        items.forEach(item => {
+            const date = new Date(item.timestamp).toLocaleString('ru-RU', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+            const card = document.createElement('div');
+            card.className = `brew-card ${item.status}`;
+            card.innerHTML = `
+                <div class="brew-header">
+                    <span>${item.recipe}</span>
+                    <span class="status">${item.status === 'Completed' ? 'ОК' : 'СТОП'}</span>
+                </div>
+                <div class="brew-details">
+                    <div>📅 ${date}</div>
+                    <div>⏱️ ${item.brew_time_sec} сек</div>
+                    <div>💧 Налито: ${item.vol_actual} мл</div>
+                    <div>🎯 Цель: ${item.vol_target} мл</div>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+    });
+
+    // 4. ЛОГИКА РЕДАКТОРА (GUI)
+    
+    // Отрисовка шагов в HTML
+    function renderSteps() {
+        const container = document.getElementById('steps-container');
+        container.innerHTML = '';
+        
+        currentSteps.forEach((step, index) => {
+            const row = document.createElement('div');
+            row.className = 'step-row';
+            row.innerHTML = `
+                <div>
+                    <label style="font-size:0.7rem; color:var(--grey);">Секунда старта</label>
+                    <input type="number" id="step-time-${index}" value="${step.startTimeSec}" min="0">
+                </div>
+                <div>
+                    <label style="font-size:0.7rem; color:var(--grey);">Объем (мл)</label>
+                    <input type="number" id="step-vol-${index}" value="${step.addVolumeML}" min="0">
+                </div>
+                <div>
+                    <label style="font-size:0.7rem; color:var(--grey);">Канал</label>
+                    <select id="step-ch-${index}">
+                        <option value="1" ${step.targetV60 == 1 ? 'selected' : ''}>CH 1</option>
+                        <option value="2" ${step.targetV60 == 2 ? 'selected' : ''}>CH 2</option>
+                    </select>
+                </div>
+                <div style="display:flex; align-items:flex-end;">
+                    <button class="btn btn-danger" onclick="removeStep(${index})">Удалить</button>
+                </div>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    // Сохранение текущих значений из инпутов обратно в массив (перед добавлением/удалением)
+    function syncStepsFromInputs() {
+        for (let i = 0; i < currentSteps.length; i++) {
+            currentSteps[i].startTimeSec = parseInt(document.getElementById(`step-time-${i}`).value) || 0;
+            currentSteps[i].addVolumeML = parseInt(document.getElementById(`step-vol-${i}`).value) || 0;
+            currentSteps[i].targetV60 = parseInt(document.getElementById(`step-ch-${i}`).value) || 1;
+        }
+    }
+
+    function addStep() {
+        syncStepsFromInputs();
+        // Добавляем пустой шаг. Если есть предыдущий, берем его время + 30 сек
+        let newTime = 0;
+        if (currentSteps.length > 0) newTime = currentSteps[currentSteps.length - 1].startTimeSec + 30;
+        
+        currentSteps.push({ startTimeSec: newTime, addVolumeML: 50, targetV60: 1 });
+        renderSteps();
+    }
+
+    function removeStep(index) {
+        syncStepsFromInputs();
+        currentSteps.splice(index, 1);
+        renderSteps();
+    }
+
+    // Загрузка данных из Firebase в форму
+    function loadRecipeToEditor() {
+        const path = document.getElementById('dbPath').value;
+        
+        // Очистка перед загрузкой
+        document.getElementById('rec-name').value = "Загрузка...";
+        document.getElementById('rec-weight').value = "";
+        document.getElementById('rec-grind').value = "";
+        document.getElementById('rec-volume').value = "";
+        currentSteps = [];
+        renderSteps();
+
+        db.ref(path).once('value').then(s => {
+            if (s.exists()) {
+                const data = s.val();
+                document.getElementById('rec-name').value = data.name || "";
+                document.getElementById('rec-weight').value = data.weight || "";
+                document.getElementById('rec-grind').value = data.grind || "";
+                document.getElementById('rec-volume').value = data.totalVolume || "";
+                
+                if (data.steps && Array.isArray(data.steps)) {
+                    currentSteps = data.steps;
+                } else {
+                    currentSteps = [];
+                }
+                renderSteps();
+            } else {
+                // Если слот пустой
+                document.getElementById('rec-name').value = "";
+                document.getElementById('rec-weight').value = "";
+                document.getElementById('rec-grind').value = "";
+                document.getElementById('rec-volume').value = "";
+                currentSteps = [];
+                renderSteps();
+            }
+        }).catch(e => {
+            alert("Ошибка загрузки: " + e.message);
+        });
+    }
+
+    // Сохранение формы в Firebase
+    function saveToFirebase() {
+        syncStepsFromInputs(); // Считываем последние изменения шагов
+        
+        const path = document.getElementById('dbPath').value;
+        const name = document.getElementById('rec-name').value.trim();
+        const weight = parseInt(document.getElementById('rec-weight').value) || 0;
+        const grind = document.getElementById('rec-grind').value.trim() || "-";
+        const totalVolume = parseInt(document.getElementById('rec-volume').value) || 0;
+
+        if (name === "") {
+            alert("Пожалуйста, введите название рецепта!");
+            return;
+        }
+
+        const dataToSave = {
+            name: name,
+            grind: grind,
+            weight: weight,
+            totalVolume: totalVolume,
+            stepCount: currentSteps.length,
+            steps: currentSteps
+        };
+
+        db.ref(path).set(dataToSave)
+            .then(() => alert('Успешно сохранено!\nРецепт появится на станции после синхронизации.'))
+            .catch(e => alert('Ошибка при сохранении: ' + e.message));
+    }
+</script>
+</body>
+</html>
         /* Стилизация выпадающего списка */
         select.recipe-selector { 
             flex: 1; 
