@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOVA Dashboard & Editor</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        :root { --bg: #0f0f0f; --card: #1a1a1a; --accent: #ffffff; --grey: #888; --red: #ff4d4d; --green: #00e676; }
+        body { background: var(--bg); color: var(--accent); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; }
+        .header { text-align: center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
+        .header h1 { font-weight: 300; letter-spacing: 3px; margin: 0; font-size: 1.5rem; }
+        
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 12px; background: var(--card); border: 1px solid #333; color: var(--grey); border-radius: 8px; cursor: pointer; }
+        .tab-btn.active { border-color: var(--accent); color: #fff; }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* Статистика */
+        .brew-card { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 4px solid var(--grey); }
+        .brew-card.Completed { border-left-color: var(--green); }
+        .brew-card.Abandoned { border-left-color: var(--red); }
+        .brew-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px; }
+        .brew-details { font-size: 0.85rem; color: var(--grey); display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .status { font-size: 0.7rem; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #333; color: #fff; }
+
+        /* Редактор */
+        textarea { width: 100%; height: 400px; background: #000; color: #00e676; border: 1px solid #333; border-radius: 8px; padding: 10px; font-family: monospace; box-sizing: border-box; }
+        .btn-save { width: 100%; padding: 15px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+        
+        .path-container { display: flex; gap: 10px; margin-bottom: 10px; }
+        .recipe-selector { flex: 1; padding: 10px; background: var(--card); color: #fff; border: 1px solid #333; border-radius: 6px; }
+        .btn-load { padding: 10px 15px; background: #333; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+        .btn-load:hover { background: #444; }
+    </style>
+</head>
+<body>
+
+<div class="header"><h1>NOVA DASHBOARD</h1></div>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="showTab(event, 'stats')">Статистика</button>
+    <button class="tab-btn" onclick="showTab(event, 'editor')">Редактор</button>
+</div>
+
+<div id="stats" class="section active">
+    <div id="totalInfo" style="margin-bottom: 15px; color: var(--grey);">Загрузка данных...</div>
+    <div id="historyList"></div>
+</div>
+
+<div id="editor" class="section">
+    <p style="font-size: 0.8rem; color: var(--grey);">Выберите путь в базе (например, <b>recipes/v60_0</b>) и отредактируйте JSON:</p>
+    
+    <div class="path-container">
+        <input type="text" id="dbPath" class="recipe-selector" value="recipes/v60_0">
+        <button class="btn-load" onclick="loadRecipeToEditor()">Загрузить</button>
+    </div>
+    
+    <textarea id="jsonEditor"></textarea>
+    <button class="btn-save" onclick="saveToFirebase()">СОХРАНИТЬ В БАЗУ</button>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyA7qkkjU6_RLZ-Kk80UXNQTuavVAV-fmB8",
+        databaseURL: "https://v60-station-default-rtdb.europe-west1.firebasedatabase.app"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function showTab(e, tabId) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        e.currentTarget.classList.add('active');
+        if(tabId === 'editor') loadRecipeToEditor();
+    }
+
+    // ЛОГИКА СТАТИСТИКИ
+    db.ref('/history').limitToLast(50).on('value', (snap) => {
+        const list = document.getElementById('historyList');
+        list.innerHTML = '';
+        const data = snap.val();
+        if(!data) {
+            document.getElementById('totalInfo').innerText = `Нет данных для отображения.`;
+            return;
+        }
+
+        const items = Object.values(data).reverse();
+        document.getElementById('totalInfo').innerText = `Всего варок: ${items.length} (последние 50)`;
+
+        items.forEach(item => {
+            const date = new Date(item.timestamp).toLocaleString('ru-RU', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+            const card = document.createElement('div');
+            card.className = `brew-card ${item.status}`;
+            card.innerHTML = `
+                <div class="brew-header">
+                    <span>${item.recipe}</span>
+                    <span class="status">${item.status === 'Completed' ? 'ОК' : 'СТОП'}</span>
+                </div>
+                <div class="brew-details">
+                    <div>📅 ${date}</div>
+                    <div>⏱️ ${item.brew_time_sec} сек</div>
+                    <div>💧 Налито: ${item.vol_actual} мл</div>
+                    <div>🎯 Цель: ${item.vol_target} мл</div>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+    });
+
+    // ЛОГИКА РЕДАКТОРА
+    function loadRecipeToEditor() {
+        const path = document.getElementById('dbPath').value;
+        document.getElementById('jsonEditor').value = "Загрузка...";
+        db.ref(path).once('value').then(s => {
+            if (s.exists()) {
+                document.getElementById('jsonEditor').value = JSON.stringify(s.val(), null, 2);
+            } else {
+                document.getElementById('jsonEditor').value = "Рецепт не найден по этому пути.";
+            }
+        }).catch(e => {
+            document.getElementById('jsonEditor').value = "Ошибка загрузки: " + e.message;
+        });
+    }
+
+    function saveToFirebase() {
+        const path = document.getElementById('dbPath').value;
+        try {
+            const data = JSON.parse(document.getElementById('jsonEditor').value);
+            db.ref(path).set(data)
+                .then(() => alert('Успешно сохранено! Плата синхронизирует изменения.'))
+                .catch(e => alert('Ошибка: ' + e.message));
+        } catch(e) {
+            alert('Ошибка в JSON: проверьте запятые, скобки и кавычки.');
+        }
+    }
+</script>
+</body>
+</html>
