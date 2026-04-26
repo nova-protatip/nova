@@ -61,9 +61,13 @@
         .steps-header { margin-top: 25px; margin-bottom: 10px; border-bottom: 1px solid var(--dark-grey); padding-bottom: 10px; color: var(--accent); }
         .steps-header h3 { margin: 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; }
         
-        .step-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; background: var(--card); padding: 10px; border-radius: var(--border-radius); margin-bottom: 10px; align-items: center; border: 1px solid var(--dark-grey); }
+        .step-row { display: grid; grid-template-columns: 1.5fr 1fr auto; gap: 10px; background: var(--card); padding: 10px; border-radius: var(--border-radius); margin-bottom: 10px; align-items: center; border: 1px solid var(--dark-grey); }
         .step-row input { width: 100%; padding: 10px; background: var(--bg); border: 1px solid var(--dark-grey); color: #fff; border-radius: 4px; box-sizing: border-box; text-align: center; font-size: 0.9rem; }
         .step-row input:focus { border-color: var(--accent); outline: none; }
+        
+        /* Блок ввода минут и секунд */
+        .time-inputs { display: flex; gap: 5px; align-items: center; }
+        .time-separator { font-weight: bold; color: var(--grey); }
 
         /* Кнопки */
         .btn { padding: 12px 15px; border: none; border-radius: var(--border-radius); cursor: pointer; transition: 0.2s; font-weight: bold; text-transform: uppercase; font-size: 0.9rem; }
@@ -150,11 +154,11 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Массивы для хранения шагов
+    // Массивы для хранения шагов (внутри храним startTimeSec, в интерфейсе показываем мм:сс)
     let currentStepsCh1 = [];
     let currentStepsCh2 = [];
 
-    // 1. Генерация выпадающего списка (Вернули названия recipes/...)
+    // 1. Генерация выпадающего списка
     function populateDropdown() {
         const select = document.getElementById('dbPath');
         
@@ -219,40 +223,60 @@
 
     // 4. ЛОГИКА РЕДАКТОРА (GUI)
     
-    // Синхронизируем инпуты с массивом перед любым действием
+    // Синхронизируем значения из Мин:Сек в секунды (startTimeSec)
     function syncStepsFromInputs() {
         const isDouble = document.getElementById('dbPath').value.includes('double');
         
         currentStepsCh1.forEach((step, i) => {
             const containerId = isDouble ? 'double-1' : '1';
-            const timeInput = document.getElementById(`step-time-1-${containerId}-${i}`);
+            const minInput = document.getElementById(`step-min-1-${containerId}-${i}`);
+            const secInput = document.getElementById(`step-sec-1-${containerId}-${i}`);
             const volInput = document.getElementById(`step-vol-1-${containerId}-${i}`);
-            if (timeInput) step.startTimeSec = parseInt(timeInput.value) || 0;
+            
+            if (minInput && secInput) {
+                let m = parseInt(minInput.value) || 0;
+                let s = parseInt(secInput.value) || 0;
+                step.startTimeSec = (m * 60) + s;
+            }
             if (volInput) step.addVolumeML = parseInt(volInput.value) || 0;
         });
 
         if (isDouble) {
             currentStepsCh2.forEach((step, i) => {
-                const timeInput = document.getElementById(`step-time-2-double-2-${i}`);
+                const minInput = document.getElementById(`step-min-2-double-2-${i}`);
+                const secInput = document.getElementById(`step-sec-2-double-2-${i}`);
                 const volInput = document.getElementById(`step-vol-2-double-2-${i}`);
-                if (timeInput) step.startTimeSec = parseInt(timeInput.value) || 0;
+                
+                if (minInput && secInput) {
+                    let m = parseInt(minInput.value) || 0;
+                    let s = parseInt(secInput.value) || 0;
+                    step.startTimeSec = (m * 60) + s;
+                }
                 if (volInput) step.addVolumeML = parseInt(volInput.value) || 0;
             });
         }
     }
 
-    // Отрисовка конкретного массива шагов в нужный контейнер
+    // Отрисовка конкретного массива шагов (переводим секунды в Мин:Сек для верстки)
     function renderStepList(containerId, stepsArray, channelNum) {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
         
         stepsArray.forEach((step, index) => {
+            // Перевод общих секунд в минуты и секунды
+            const m = Math.floor(step.startTimeSec / 60);
+            const s = step.startTimeSec % 60;
+
             const row = document.createElement('div');
             row.className = 'step-row';
             row.innerHTML = `
                 <div>
-                    <label style="font-size:0.65rem; color:var(--grey); margin-bottom:3px; display:block;">Старт (сек)</label>
-                    <input type="number" id="step-time-${channelNum}-${containerId.replace('steps-container-', '')}-${index}" value="${step.startTimeSec}" min="0">
+                    <label style="font-size:0.65rem; color:var(--grey); margin-bottom:3px; display:block;">Старт (Мин : Сек)</label>
+                    <div class="time-inputs">
+                        <input type="number" id="step-min-${channelNum}-${containerId.replace('steps-container-', '')}-${index}" value="${m}" min="0">
+                        <span class="time-separator">:</span>
+                        <input type="number" id="step-sec-${channelNum}-${containerId.replace('steps-container-', '')}-${index}" value="${s}" min="0" max="59">
+                    </div>
                 </div>
                 <div>
                     <label style="font-size:0.65rem; color:var(--grey); margin-bottom:3px; display:block;">Объем (мл)</label>
@@ -324,7 +348,6 @@
                 document.getElementById('rec-volume').value = data.totalVolume || "";
                 
                 if (data.steps && Array.isArray(data.steps)) {
-                    // Разбиваем общий список шагов на два массива по каналам
                     currentStepsCh1 = data.steps.filter(step => step.targetV60 === 1).map(s => ({startTimeSec: s.startTimeSec, addVolumeML: s.addVolumeML}));
                     if (isDouble) {
                         currentStepsCh2 = data.steps.filter(step => step.targetV60 === 2).map(s => ({startTimeSec: s.startTimeSec, addVolumeML: s.addVolumeML}));
@@ -332,7 +355,7 @@
                 }
                 renderSteps();
             } else {
-                // Если слот пустой
+                // Если слот пустой, даем умный шаблон
                 document.getElementById('rec-name').value = isDouble ? "Новый 2 v 60" : "Новый V60";
                 document.getElementById('rec-weight').value = isDouble ? 30 : 15;
                 document.getElementById('rec-grind').value = isDouble ? "8.0" : "7.0";
